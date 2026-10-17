@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FactoryGuard | Industrial Intelligence</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <div class="brand-mark">FG</div>
+        <div><strong>FactoryGuard</strong><small>INDUSTRIAL INTELLIGENCE</small></div>
+      </div>
+      <div class="workspace-label">WORKSPACE</div>
+      <nav class="nav">
+        <button class="nav-link active" data-page="overview"><span>▦</span> Overview</button>
+        <button class="nav-link" data-page="machines"><span>▤</span> Machines <b class="nav-count">12</b></button>
+        <button class="nav-link" data-page="alerts"><span>⚑</span> Alerts <b class="nav-count alert-count">3</b></button>
+        <button class="nav-link" data-page="analytics"><span>⌁</span> Analytics</button>
+        <button class="nav-link" data-page="technician"><span>☏</span> Technician chat</button>
+      </nav>
+      <div class="sidebar-bottom">
+        <button class="nav-link" data-page="settings"><span>⚙</span> Settings</button>
+        <div class="profile">
+          <div class="avatar">AS</div>
+          <div><strong>Alex Smith</strong><small>Plant engineer</small></div>
+          <span class="profile-dots">•••</span>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <button class="mobile-menu" id="menuToggle" aria-label="Toggle menu">☰</button>
+        <div class="breadcrumb">Factory / <strong id="breadcrumbCurrent">Overview</strong></div>
+        <div class="top-actions">
+          <div class="system-status"><span class="pulse"></span> Systems operational</div>
+          <button class="icon-button" id="topAlerts" aria-label="Open alerts">♧<i></i></button>
+          <div class="top-avatar">AS</div>
+        </div>
+      </header>
+      <div class="page-wrap">
+        <section class="page active" id="page-overview">
+          <div class="page-heading">
+            <div><p class="eyebrow">MONDAY, OCTOBER 16, 2026</p><h1>Plant overview</h1><p class="muted">Here's what's happening across your facility today.</p></div>
+            <div class="heading-actions"><button class="btn btn-light" id="exportOverview">↧ Export report</button><button class="btn btn-primary" data-go="machines">＋ Add machine</button></div>
+          </div>
+          <div class="stat-grid">
+            <article class="stat-card"><div class="stat-top"><span>Total machines</span><span class="stat-icon blue">▤</span></div><div class="stat-number">12 <small class="trend positive">↗ 2.4%</small></div><div class="stat-foot">Across 3 production lines</div></article>
+            <article class="stat-card"><div class="stat-top"><span>Running smoothly</span><span class="stat-icon green">✓</span></div><div class="stat-number">8 <small class="trend positive">66.7%</small></div><div class="progress"><span style="width:66.7%"></span></div><div class="stat-foot">Machines within normal range</div></article>
+            <article class="stat-card"><div class="stat-top"><span>Active alerts</span><span class="stat-icon orange">⚑</span></div><div class="stat-number" id="activeAlertStat">3 <small class="trend negative">Needs attention</small></div><div class="stat-foot">1 critical · 2 warnings</div></article>
+            <article class="stat-card"><div class="stat-top"><span>Average uptime</span><span class="stat-icon purple">◷</span></div><div class="stat-number">98.4% <small class="trend positive">↗ 1.2%</small></div><div class="stat-foot">Over the last 30 days</div></article>
+          </div>
+          <div class="content-grid">
+            <article class="panel chart-panel">
+              <div class="panel-heading"><div><h2>Machine performance</h2><p class="muted">Facility health over the last 7 days</p></div><select id="performanceRange" class="select"><option value="7">Last 7 days</option><option value="30">Last 30 days</option></select></div>
+              <div class="chart-legend"><span><i class="legend-dot blue-dot"></i> Output efficiency</span><span><i class="legend-dot green-dot"></i> Uptime</span></div>
+              <div class="chart" id="performanceChart" aria-label="Performance line chart"></div>
+              <div class="chart-axis"><span>Oct 10</span><span>Oct 11</span><span>Oct 12</span><span>Oct 13</span><span>Oct 14</span><span>Oct 15</span><span>Oct 16</span></div>
+            </article>
+            <article class="panel alerts-panel">
+              <div class="panel-heading"><div><h2>Recent alerts</h2><p class="muted">Events that may need your attention</p></div><button class="text-button" data-go="alerts">View all →</button></div>
+              <div id="recentAlerts" class="alert-list"></div>
+            </article>
+          </div>
+          <article class="panel machine-panel">
+            <div class="panel-heading"><div><h2>Machine status</h2><p class="muted">Live-style demo overview of your production floor</p></div><button class="text-button" data-go="machines">View all machines →</button></div>
+            <div class="table-wrap"><table><thead><tr><th>Machine</th><th>Line</th><th>Status</th><th>Temperature</th><th>Vibration</th><th>Last checked</th><th></th></tr></thead><tbody id="overviewMachineRows"></tbody></table></div>
+          </article>
+          <p class="demo-note">Demo mode · Values shown are sample data, not live factory sensor readings.</p>
+        </section>
+
+        <section class="page" id="page-machines">
+          <div class="page-heading"><div><p class="eyebrow">FACILITY MONITORING</p><h1>Machines</h1><p class="muted">Monitor machine status, sensor readings, and operating conditions.</p></div><button class="btn btn-primary" id="addMachineBtn">＋ Add machine</button></div>
+          <div class="filter-bar"><div class="search-box">⌕ <input id="machineSearch" placeholder="Search machine name or ID..." /></div><select id="machineStatusFilter" class="select"><option value="all">All statuses</option><option value="Healthy">Healthy</option><option value="Warning">Warning</option><option value="Critical">Critical</option><option value="Offline">Offline</option></select><select id="machineLineFilter" class="select"><option value="all">All production lines</option><option>Line A</option><option>Line B</option><option>Line C</option></select></div>
+          <div class="machine-cards" id="machineCards"></div>
+          <p class="demo-note">Click a machine card to inspect its sample sensor readings.</p>
+        </section>
+
+        <section class="page" id="page-alerts">
+          <div class="page-heading"><div><p class="eyebrow">EVENT CENTER</p><h1>Alerts</h1><p class="muted">Review anomalies and track follow-up actions.</p></div><button class="btn btn-light" id="clearResolved">✓ Clear resolved from view</button></div>
+          <div class="stat-grid compact-stats"><article class="stat-card"><div class="stat-top"><span>Unresolved</span><span class="stat-icon orange">⚑</span></div><div class="stat-number" id="unresolvedCount">3</div></article><article class="stat-card"><div class="stat-top"><span>Critical</span><span class="stat-icon red">!</span></div><div class="stat-number" id="criticalCount">1</div></article><article class="stat-card"><div class="stat-top"><span>Acknowledged</span><span class="stat-icon blue">✓</span></div><div class="stat-number" id="ackCount">0</div></article></div>
+          <div class="filter-bar"><div class="search-box">⌕ <input id="alertSearch" placeholder="Search alerts..." /></div><select id="alertSeverityFilter" class="select"><option value="all">All severity</option><option>Critical</option><option>Warning</option><option>Info</option></select><select id="alertStateFilter" class="select"><option value="all">All states</option><option value="Open">Open</option><option value="Acknowledged">Acknowledged</option><option value="Resolved">Resolved</option></select></div>
+          <article class="panel"><div class="table-wrap"><table><thead><tr><th>Severity</th><th>Alert</th><th>Machine</th><th>Time</th><th>State</th><th>Action</th></tr></thead><tbody id="alertRows"></tbody></table></div></article>
+          <p class="demo-note">Alerts are generated from example data and are not connected to industrial equipment.</p>
+        </section>
+
+        <section class="page" id="page-analytics">
+          <div class="page-heading"><div><p class="eyebrow">INSIGHTS & TRENDS</p><h1>Analytics</h1><p class="muted">Understand operational performance and recurring machine issues.</p></div><button class="btn btn-light" id="exportAnalytics">↧ Export analytics</button></div>
+          <div class="stat-grid"><article class="stat-card"><div class="stat-top"><span>Average efficiency</span><span class="stat-icon blue">⌁</span></div><div class="stat-number">92.6%</div><div class="stat-foot">Sample period · 30 days</div></article><article class="stat-card"><div class="stat-top"><span>Downtime</span><span class="stat-icon orange">◷</span></div><div class="stat-number">6.2 hrs</div><div class="stat-foot">Across all machines</div></article><article class="stat-card"><div class="stat-top"><span>Alerts this week</span><span class="stat-icon purple">⚑</span></div><div class="stat-number">17</div><div class="stat-foot">11 warnings · 2 critical</div></article><article class="stat-card"><div class="stat-top"><span>Maintenance due</span><span class="stat-icon green">⚙</span></div><div class="stat-number">2</div><div class="stat-foot">Suggested maintenance tasks</div></article></div>
+          <div class="content-grid"><article class="panel"><div class="panel-heading"><div><h2>Efficiency by machine</h2><p class="muted">Illustrative output efficiency</p></div></div><div class="bar-chart" id="efficiencyChart"></div></article><article class="panel"><div class="panel-heading"><div><h2>Alert distribution</h2><p class="muted">Sample alert categories</p></div></div><div class="distribution" id="distributionChart"></div></article></div>
+          <article class="panel"><div class="panel-heading"><div><h2>Recommended actions</h2><p class="muted">Rule-based suggestions for this demo</p></div></div><div class="recommendations"><div class="recommendation"><span class="rec-icon orange">!</span><div><strong>Inspect Hydraulic Press #04</strong><p>Temperature is above the sample warning threshold. Check cooling and lubrication.</p></div><span class="priority">High priority</span></div><div class="recommendation"><span class="rec-icon blue">↗</span><div><strong>Schedule maintenance for CNC Mill #02</strong><p>Vibration trend is elevated compared with its sample baseline.</p></div><span class="priority medium">Medium</span></div></div></article>
+        </section>
+
+        <section class="page" id="page-technician">
+          <div class="page-heading"><div><p class="eyebrow">SUPPORT WORKSPACE</p><h1>Technician chat</h1><p class="muted">Coordinate troubleshooting and maintenance with your team.</p></div><span class="pill pill-green">● Team available</span></div>
+          <div class="chat-layout panel">
+            <aside class="chat-contacts"><div class="chat-search">⌕ <input id="contactSearch" placeholder="Search team..." /></div><button class="contact active" data-contact="Morgan Lee"><span class="contact-avatar teal">ML</span><span><strong>Morgan Lee</strong><small>Maintenance technician</small></span><i class="online-dot"></i></button><button class="contact" data-contact="Priya Patel"><span class="contact-avatar purple">PP</span><span><strong>Priya Patel</strong><small>Controls engineer</small></span></button><button class="contact" data-contact="Jordan Kim"><span class="contact-avatar amber">JK</span><span><strong>Jordan Kim</strong><small>Shift supervisor</small></span></button></aside>
+            <div class="chat-main"><div class="chat-header"><span class="contact-avatar teal" id="chatAvatar">ML</span><div><strong id="chatName">Morgan Lee</strong><small id="chatRole">Maintenance technician · Available</small></div></div><div class="messages" id="messages"><div class="date-divider">TODAY</div><div class="message received"><p>Morning! I’m checking the Line A machines. Let me know if anything needs a closer look.</p><small>09:12 AM</small></div><div class="message sent"><p>Could you inspect Hydraulic Press #04? Its temperature alert came up.</p><small>09:18 AM</small></div><div class="message received"><p>Sure, I’ll inspect the cooling system and report back here.</p><small>09:20 AM</small></div></div><form id="chatForm" class="chat-compose"><input id="chatInput" placeholder="Write a message..." autocomplete="off" /><button class="btn btn-primary" type="submit">Send ↑</button></form></div>
+          </div>
+          <p class="demo-note">Messages are stored only in this browser session; no real technician is connected.</p>
+        </section>
+
+        <section class="page" id="page-settings">
+          <div class="page-heading"><div><p class="eyebrow">PREFERENCES</p><h1>Settings</h1><p class="muted">Manage your demo workspace preferences.</p></div><button class="btn btn-primary" id="saveSettings">Save changes</button></div>
+          <div class="settings-grid"><article class="panel settings-panel"><h2>Workspace</h2><p class="muted">Basic facility information displayed in the dashboard.</p><label class="field-label">Facility name<input id="facilityName" value="FactoryGuard Demo Plant" /></label><label class="field-label">Time zone<select id="timezone" class="select full"><option>Asia/Kolkata (IST)</option><option>UTC</option><option>America/Chicago</option><option>Europe/London</option></select></label><label class="field-label">Units<select id="units" class="select full"><option value="metric">Metric (°C, mm/s)</option><option value="imperial">Imperial (°F, in/s)</option></select></label></article><article class="panel settings-panel"><h2>Notifications</h2><p class="muted">Choose which demo events appear as notifications.</p><label class="toggle-row"><span><strong>Critical alerts</strong><small>Notify when a machine is marked critical</small></span><input type="checkbox" id="criticalNotifications" checked /><i></i></label><label class="toggle-row"><span><strong>Warning alerts</strong><small>Notify for unusual sensor readings</small></span><input type="checkbox" id="warningNotifications" checked /><i></i></label><label class="toggle-row"><span><strong>Weekly summary</strong><small>Show a weekly performance summary</small></span><input type="checkbox" id="weeklySummary" /><i></i></label></article></div>
+          <div id="settingsMessage" class="settings-message" role="status"></div>
+          <div class="panel danger-zone"><div><h2>Demo data</h2><p class="muted">Restore the original sample machines and alerts in this browser.</p></div><button class="btn btn-danger" id="resetDemo">Reset demo data</button></div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div class="modal-backdrop" id="modalBackdrop"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><button class="modal-close" id="modalClose" aria-label="Close">×</button><div id="modalContent"></div></div></div>
+  <div class="toast" id="toast" role="status"></div>
+  <script src="app.js"></script>
+</body>
+</html>
