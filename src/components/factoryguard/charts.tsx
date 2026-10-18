@@ -1,12 +1,52 @@
-import { useState } from 'react';
-import { ResponsiveContainer,AreaChart,Area,LineChart,Line,XAxis,YAxis,CartesianGrid,Tooltip,PieChart,Pie,Cell } from 'recharts';
-import { Thermometer,Gauge } from 'lucide-react';
-import { api } from '@/services/api';
-import type { Period } from '@/data/sensors';
-import { Button } from '@/components/ui/button';
-import { useTemperature } from './state';
-export function SensorChart({machineId='MCH-003',metric='temperature',title}:{machineId?:string;metric?:'temperature'|'rpm'|'torque'|'wear';title?:string}){
- const [period,setPeriod]=useState<Period>('12h');const temp=useTemperature();const units={temperature:temp.unit,rpm:'RPM',torque:'N·m',wear:'min'};const data=api.getHistory(machineId,period).map(x=>({...x,temperature:temp.convert(x.temperature)}));const Icon=metric==='temperature'?Thermometer:Gauge;
- return <div className="chart-panel"><div className="panel-heading"><h2><Icon size={16}/>{title??(metric==='temperature'?'Temperature trend':metric==='rpm'?'Rotational speed trend':metric==='torque'?'Torque trend':'Tool wear history')}</h2><div className="period-selector">{(['6h','12h','24h'] as Period[]).map(p=><Button key={p} size="sm" variant="ghost" className={p===period?'period-active':''} onClick={()=>setPeriod(p)}>{p}</Button>)}</div></div><div className="chart-subtitle">{machineId} <span>·</span> {units[metric]} <span>·</span> Sample history</div><div className="sensor-chart"><ResponsiveContainer width="100%" height="100%">{metric==='temperature'?<AreaChart data={data} margin={{top:12,right:10,left:-18,bottom:6}}><CartesianGrid stroke="var(--border)" vertical={false} strokeDasharray="3 4"/><XAxis dataKey="time" tick={{fill:'var(--muted-foreground)',fontSize:10}} tickLine={false} axisLine={false} minTickGap={26}/><YAxis domain={['dataMin - 5','dataMax + 5']} tick={{fill:'var(--muted-foreground)',fontSize:10}} tickLine={false} axisLine={false} tickFormatter={v=>Math.round(v).toString()}/><Tooltip contentStyle={{background:'var(--popover)',border:'1px solid var(--border)',borderRadius:6,color:'var(--foreground)'}} formatter={(v:number)=>[`${v} ${units[metric]}`,'Temperature']} labelFormatter={v=>`${v} UTC · Demo`}/><Area type="monotone" dataKey={metric} stroke="var(--primary)" strokeWidth={2} fill="var(--primary)" fillOpacity={.09} isAnimationActive={false}/></AreaChart>:<LineChart data={data} margin={{top:12,right:10,left:-10,bottom:6}}><CartesianGrid stroke="var(--border)" vertical={false} strokeDasharray="3 4"/><XAxis dataKey="time" tick={{fill:'var(--muted-foreground)',fontSize:10}} tickLine={false} axisLine={false} minTickGap={26}/><YAxis domain={['dataMin - 50','dataMax + 50']} tick={{fill:'var(--muted-foreground)',fontSize:10}} tickLine={false} axisLine={false}/><Tooltip contentStyle={{background:'var(--popover)',border:'1px solid var(--border)',borderRadius:6,color:'var(--foreground)'}} formatter={(v:number)=>[`${v} ${units[metric]}`,metric.toUpperCase()]} labelFormatter={v=>`${v} UTC · Demo`}/><Line type="monotone" dataKey={metric} stroke="var(--chart-2)" strokeWidth={2} dot={false} isAnimationActive={false}/></LineChart>}</ResponsiveContainer></div><div className="chart-legend"><span className={metric==='temperature'?'legend-cyan':'legend-blue'}/> {metric==='temperature'?'Temperature':metric==='rpm'?'Rotational speed':metric==='torque'?'Torque':'Tool wear'} <span className="chart-axis-caption">Time (UTC)</span></div></div>;
+import { ResponsiveContainer, PieChart, Pie, Tooltip, Cell } from 'recharts';
+import { Thermometer, Activity, Gauge } from 'lucide-react';
+import { useFactory, useTemperature } from './state';
+
+const healthColors = ['var(--healthy)', 'var(--warning)', 'var(--critical)'];
+
+export function SensorChart({ machineId, metric = 'temperature', title }: {
+  machineId?: string;
+  metric?: 'temperature' | 'vibration' | 'pressure';
+  title?: string;
+}) {
+  const { machines, dataLoading } = useFactory();
+  const temp = useTemperature();
+  const machine = machineId ? machines.find((item) => item.id === machineId) : machines[0];
+  const metrics = {
+    temperature: { label: 'Temperature', unit: temp.unit, icon: Thermometer, value: machine ? temp.convert(machine.temperature) : undefined },
+    vibration: { label: 'Vibration', unit: 'mm/s', icon: Activity, value: machine?.vibration },
+    pressure: { label: 'Pressure', unit: 'bar', icon: Gauge, value: machine?.pressure },
+  };
+  const selected = metrics[metric];
+  const Icon = selected.icon;
+
+  return <div className="chart-panel">
+    <div className="panel-heading"><h2><Icon size={16} />{title ?? `${selected.label} snapshot`}</h2></div>
+    <div className="chart-subtitle">{machine ? `${machine.id} · ${selected.unit} · Latest backend reading` : 'Backend sensor data'}</div>
+    <div className="sensor-chart flex items-center justify-center">
+      {dataLoading ? <p className="muted-small">Loading sensor reading…</p>
+        : !machine ? <p className="muted-small">No machine reading is available.</p>
+          : selected.value === undefined ? <p className="muted-small">This sensor value is not provided by the backend.</p>
+            : <div className="text-center"><strong className="text-3xl font-semibold">{selected.value.toFixed(1)}</strong><span className="ml-2 text-sm text-muted-foreground">{selected.unit}</span><p className="muted-small mt-2">Snapshot only · historical readings are not available from the API.</p></div>}
+    </div>
+  </div>;
 }
-export function HealthChart(){const machines=api.listMachines();const data=['Healthy','Warning','Critical'].map(name=>({name,value:machines.filter(m=>m.status===name).length}));const colors=['var(--healthy)','var(--warning)','var(--critical)'];return <div className="chart-panel health-panel"><div className="panel-heading"><h2>Machine health</h2><span className="muted-small">12 machines</span></div><div className="health-chart"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={data} innerRadius={60} outerRadius={77} paddingAngle={5} dataKey="value" stroke="none" startAngle={90} endAngle={-270} isAnimationActive={false}>{data.map((d,i)=><Cell key={d.name} fill={colors[i]}/>)}</Pie><Tooltip contentStyle={{background:'var(--popover)',border:'1px solid var(--border)',borderRadius:6}}/></PieChart></ResponsiveContainer><div className="donut-label"><strong>{Math.round(data[0].value/machines.length*100)}<small>%</small></strong><span>Healthy</span></div></div><div className="health-legend">{data.map(d=><div key={d.name}><span className={`status-dot dot-${d.name.toLowerCase()}`}/><span>{d.name}</span><strong>{d.value}</strong><small>{Math.round(d.value/machines.length*100)}%</small></div>)}</div></div>;}
+
+export function HealthChart() {
+  const { machines, dataLoading } = useFactory();
+  const data = ['Healthy', 'Warning', 'Critical'].map((name) => ({
+    name,
+    value: machines.filter((machine) => machine.status === name).length,
+  }));
+  const total = machines.length;
+  const healthyPercent = total ? Math.round((data[0]?.value ?? 0) / total * 100) : 0;
+
+  return <div className="chart-panel health-panel">
+    <div className="panel-heading"><h2>Machine health</h2><span className="muted-small">{total} backend machines</span></div>
+    <div className="health-chart"><ResponsiveContainer width="100%" height="100%"><PieChart>
+      <Pie data={data} innerRadius={60} outerRadius={77} paddingAngle={5} dataKey="value" stroke="none" startAngle={90} endAngle={-270} isAnimationActive={false}>{data.map((item, index) => <Cell key={item.name} fill={healthColors[index] ?? 'var(--muted)'} />)}</Pie>
+      <Tooltip contentStyle={{ background: 'var(--popover)', border: '1px solid var(--border)', borderRadius: 6 }} />
+    </PieChart></ResponsiveContainer><div className="donut-label"><strong>{dataLoading ? '—' : healthyPercent}<small>{dataLoading ? '' : '%'}</small></strong><span>Healthy</span></div></div>
+    <div className="health-legend">{data.map((item) => <div key={item.name}><span className={`status-dot dot-${item.name.toLowerCase()}`} /><span>{item.name}</span><strong>{item.value}</strong><small>{total ? Math.round(item.value / total * 100) : 0}%</small></div>)}</div>
+  </div>;
+}

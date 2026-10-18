@@ -46,6 +46,7 @@ dist/
 # Environment secrets
 .env
 .env.*
+!.env.example
 
 # Backups and macOS files
 backend_backup/

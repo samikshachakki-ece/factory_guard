@@ -20,6 +20,8 @@ const initialAlerts = [
  {id:105,severity:"Warning",title:"Machine connection lost",description:"No recent demo heartbeat received from Cooling Pump #03.",machineId:"M-006",time:"09:27 AM",state:"Acknowledged"},
  {id:106,severity:"Info",title:"Machine back within range",description:"CNC Mill #01 readings are within the sample range.",machineId:"M-001",time:"Yesterday",state:"Resolved"}
 ];
+const API_BASE_URL = window.FACTORYGUARD_API_URL || "http://localhost:8000";
+const API_TIMEOUT_MS = 5000;
 let machines = structuredClone(initialMachines);
 let alerts = structuredClone(initialAlerts);
 let currentPage = "overview";
@@ -29,6 +31,39 @@ const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 const machineById = id => machines.find(m=>m.id===id);
 const esc = s => String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+async function fetchApiList(path,key){
+ const controller=new AbortController(), timeout=setTimeout(()=>controller.abort(),API_TIMEOUT_MS);
+ try{
+  const response=await fetch(`${API_BASE_URL}${path}`,{signal:controller.signal});
+  if(!response.ok)throw new Error(`GET ${path} returned ${response.status}`);
+  const payload=await response.json(), rows=Array.isArray(payload)?payload:payload?.[key];
+  if(!Array.isArray(rows))throw new Error(`GET ${path} did not return a ${key} array`);
+  return rows;
+ }finally{clearTimeout(timeout)}
+}
+function normalizeMachine(record){
+ if(!record||typeof record!=="object")throw new Error("Invalid machine record");
+ const id=record.id??record.machine_id, name=record.name??record.machine_name;
+ const temperature=Number(record.temp??record.temperature??record.metrics?.temperature);
+ const vibration=Number(record.vibration??record.metrics?.vibration);
+ if(id==null||!name||!record.status||!Number.isFinite(temperature)||!Number.isFinite(vibration))throw new Error("Machine records require id, name, status, temperature, and vibration");
+ const sample=initialMachines.find(machine=>machine.id===String(id));
+ return {...sample,...record,id:String(id),name:String(name),status:String(record.status),temp:temperature,vibration,line:record.line??sample?.line??"Unassigned",uptime:Number(record.uptime??sample?.uptime??0),checked:record.checked??record.last_checked??"Just now",type:record.type??sample?.type??"Machine",efficiency:Number(record.efficiency??sample?.efficiency??0)};
+}
+function normalizeAlert(record){
+ if(!record||typeof record!=="object")throw new Error("Invalid alert record");
+ const id=Number(record.id??record.alert_id), machineId=record.machineId??record.machine_id;
+ const severity=record.severity, title=record.title;
+ if(!Number.isFinite(id)||machineId==null||!severity||!title)throw new Error("Alert records require numeric id, machineId, severity, and title");
+ return {...record,id,severity:String(severity),title:String(title),description:String(record.description??record.message??""),machineId:String(machineId),time:String(record.time??record.created_at??"Just now"),state:String(record.state??"Open")};
+}
+async function loadLiveData(){
+ try{machines=(await fetchApiList("/machines","machines")).map(normalizeMachine)}
+ catch(error){machines=structuredClone(initialMachines);console.warn("Machine API unavailable; using demo data.",error)}
+ try{alerts=(await fetchApiList("/alerts","alerts")).map(normalizeAlert)}
+ catch(error){alerts=structuredClone(initialAlerts);console.warn("Alert API unavailable; using demo data.",error)}
+ renderAll();
+}
 function showToast(message){const t=$("#toast");t.textContent=message;t.classList.add("show");clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove("show"),2600)}
 function goTo(page){currentPage=page;$$(".page").forEach(p=>p.classList.toggle("active",p.id===`page-${page}`));$$(".nav-link[data-page]").forEach(b=>b.classList.toggle("active",b.dataset.page===page));$("#breadcrumbCurrent").textContent=({overview:"Overview",machines:"Machines",alerts:"Alerts",analytics:"Analytics",technician:"Technician chat",settings:"Settings"})[page]||"Overview";$("#sidebar").classList.remove("open");renderAll();window.scrollTo({top:0,behavior:"smooth"})}
 $$(".nav-link[data-page]").forEach(b=>b.addEventListener("click",()=>goTo(b.dataset.page)));
@@ -101,3 +136,4 @@ $("#resetDemo").addEventListener("click",()=>{if(!confirm("Restore the original 
 $("#units").addEventListener("change",e=>{const imperial=e.target.value==="imperial";showToast(imperial?"Imperial selected in settings. Sensor cards currently display °C sample values.":"Metric selected.")});
 window.addEventListener("resize",()=>{if(currentPage==="overview")drawPerformanceChart()});
 renderAll();
+loadLiveData();

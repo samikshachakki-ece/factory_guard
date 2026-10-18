@@ -16,17 +16,20 @@ logger = logging.getLogger("FactoryGuardBackend")
 
 app = FastAPI(title="FactoryGuard AI")
 
-# Allow CORS requests from frontend (Streamlit / Web)
+FRONTEND_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv(
+        "FRONTEND_ORIGINS",
+        "http://127.0.0.1:8080,http://localhost:8080,http://127.0.0.1:5500,http://localhost:5500",
+    ).split(",")
+    if origin.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:8501",
-        "http://127.0.0.1:8501",
-        "http://localhost:8080",
-        "http://127.0.0.1:8080",
-    ],
-    allow_credentials=True,
-    allow_methods=["GET", "POST"],
+    allow_origins=FRONTEND_ORIGINS,
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -34,6 +37,7 @@ app.add_middleware(
 AMD_API_KEY = os.getenv("AMD_API_KEY")
 LLM_API_ENDPOINT = os.getenv("LLM_API_ENDPOINT", "http://localhost:8000/v1")
 MODEL_PATH = os.getenv("MODEL_PATH", "models/sensor_anomaly_model.pkl")
+SAMPLE_TIMESTAMP = "2026-10-17T08:45:00Z"
 
 # Safe ML Model Loading
 ml_model = None
@@ -60,6 +64,22 @@ class FullWorkflowRequest(BaseModel):
     sensor_data: SensorDataRequest
 
 
+MACHINE_READINGS = [
+    {"id": "M-001", "name": "CNC Mill #01", "line": "Line A", "status": "Healthy", "temperature": 42.6, "vibration": 2.1, "pressure": 6.4, "uptime": 99.2, "checked": "Just now", "type": "CNC machine", "efficiency": 96},
+    {"id": "M-002", "name": "CNC Mill #02", "line": "Line A", "status": "Warning", "temperature": 75.8, "vibration": 5.8, "pressure": 6.7, "uptime": 96.4, "checked": "Just now", "type": "CNC machine", "efficiency": 84},
+    {"id": "M-003", "name": "Hydraulic Press #04", "line": "Line B", "status": "Critical", "temperature": 92.1, "vibration": 6.6, "pressure": 8.3, "uptime": 91.8, "checked": "Just now", "type": "Hydraulic press", "efficiency": 72},
+    {"id": "M-004", "name": "Conveyor Belt #02", "line": "Line B", "status": "Healthy", "temperature": 38.1, "vibration": 1.7, "pressure": 5.9, "uptime": 99.7, "checked": "Just now", "type": "Conveyor", "efficiency": 94},
+    {"id": "M-005", "name": "Packaging Unit #01", "line": "Line C", "status": "Healthy", "temperature": 40.2, "vibration": 2.3, "pressure": 6.1, "uptime": 98.9, "checked": "Just now", "type": "Packaging", "efficiency": 93},
+    {"id": "M-006", "name": "Cooling Pump #03", "line": "Line C", "status": "Warning", "temperature": 68.4, "vibration": 5.2, "pressure": 4.2, "uptime": 87.1, "checked": "Just now", "type": "Pump", "efficiency": 78},
+    {"id": "M-007", "name": "CNC Mill #03", "line": "Line A", "status": "Healthy", "temperature": 43.1, "vibration": 2.4, "pressure": 6.5, "uptime": 98.8, "checked": "Just now", "type": "CNC machine", "efficiency": 95},
+    {"id": "M-008", "name": "Assembly Robot #02", "line": "Line B", "status": "Healthy", "temperature": 46.5, "vibration": 2.0, "pressure": 6.2, "uptime": 99.4, "checked": "Just now", "type": "Robot", "efficiency": 97},
+    {"id": "M-009", "name": "Air Compressor #01", "line": "Line C", "status": "Warning", "temperature": 77.4, "vibration": 4.9, "pressure": 8.1, "uptime": 95.2, "checked": "Just now", "type": "Compressor", "efficiency": 81},
+    {"id": "M-010", "name": "Packaging Unit #02", "line": "Line C", "status": "Healthy", "temperature": 39.8, "vibration": 1.9, "pressure": 6.0, "uptime": 99.1, "checked": "Just now", "type": "Packaging", "efficiency": 92},
+    {"id": "M-011", "name": "Conveyor Belt #04", "line": "Line B", "status": "Healthy", "temperature": 37.6, "vibration": 1.6, "pressure": 5.8, "uptime": 99.8, "checked": "Just now", "type": "Conveyor", "efficiency": 96},
+    {"id": "M-012", "name": "Hydraulic Press #02", "line": "Line A", "status": "Healthy", "temperature": 48.2, "vibration": 2.8, "pressure": 7.5, "uptime": 98.1, "checked": "Just now", "type": "Hydraulic press", "efficiency": 90},
+]
+
+
 # Endpoints
 @app.get("/")
 def home():
@@ -75,14 +95,56 @@ def health():
     }
 
 
+@app.get("/machines")
+def list_machines():
+    """Return clearly identified sample readings until a sensor adapter is configured."""
+    return [
+        {
+            **machine,
+            "updated_at": SAMPLE_TIMESTAMP,
+            "data_source": "demo",
+        }
+        for machine in MACHINE_READINGS
+    ]
+
+
+@app.get("/alerts")
+def list_alerts():
+    """Return open alerts for machines reporting Warning or Critical status."""
+    active_alerts = []
+    for machine in MACHINE_READINGS:
+        if machine["status"] not in {"Warning", "Critical"}:
+            continue
+
+        severity = machine["status"]
+        active_alerts.append(
+            {
+                "id": len(active_alerts) + 1,
+                "severity": severity,
+                "title": f"{severity} condition detected on {machine['name']}",
+                "description": (
+                    f"{machine['name']} is reporting {machine['temperature']:.1f} °C, "
+                    f"{machine['vibration']:.1f} mm/s vibration, and "
+                    f"{machine['pressure']:.1f} bar pressure."
+                ),
+                "machineId": machine["id"],
+                "timestamp": SAMPLE_TIMESTAMP,
+                "state": "Open",
+                "data_source": "demo",
+            }
+        )
+
+    return active_alerts
+
+
 @app.post("/predict-anomaly")
 def predict_anomaly(sensor_data: SensorDataRequest):
     """Handles ML model predictions safely without crashing if model is missing."""
     if ml_model is None:
         return {
             "status": "UNKNOWN",
-            "risk_score": 0.0,
-            "note": "Model not loaded, using safe baseline.",
+            "risk_score": None,
+            "note": "Model not loaded; no anomaly prediction was made.",
         }
 
     try:
@@ -120,8 +182,9 @@ async def run_full_workflow(request: FullWorkflowRequest):
             obj_status = "WARNING"
 
         # B. Sensor Anomaly ML Model Check
-        sensor_status = "NORMAL"
+        sensor_status = "UNKNOWN"
         if ml_model is not None:
+            sensor_status = "NORMAL"
             features = [
                 [
                     request.sensor_data.temperature,
@@ -160,9 +223,18 @@ async def run_full_workflow(request: FullWorkflowRequest):
         return {
             "object_status": obj_status,
             "sensor_status": sensor_status,
+            "model_note": (
+                "ML model not loaded; sensor status is unknown."
+                if ml_model is None
+                else None
+            ),
             "guidance": llm_guidance,
             "system_overall": (
                 "CRITICAL"
+                if obj_status == "ISOLATE"
+                else "UNKNOWN"
+                if sensor_status == "UNKNOWN"
+                else "CRITICAL"
                 if "ISOLATE" in [obj_status, sensor_status]
                 else "STABLE"
             ),
@@ -181,9 +253,11 @@ class MachineAnalysisRequest(BaseModel):
     machine_id: str = Field(..., min_length=1)
     name: str = Field(..., min_length=1)
     temperature: float
-    rpm: float
-    torque: float
-    wear: float
+    rpm: float | None = None
+    torque: float | None = None
+    wear: float | None = None
+    vibration: float | None = None
+    pressure: float | None = None
 
 
 @app.post("/analyze")
@@ -195,7 +269,7 @@ def analyze_machine(request: MachineAnalysisRequest):
     # Critical conditions
     if request.temperature >= 90:
         alerts.append("Critical temperature")
-    if request.wear >= 220:
+    if request.wear is not None and request.wear >= 220:
         alerts.append("Critical wear level")
 
     if alerts:
@@ -207,13 +281,13 @@ def analyze_machine(request: MachineAnalysisRequest):
         )
 
     # Warning conditions
-    elif request.temperature >= 75 or request.wear >= 170:
+    elif request.temperature >= 75 or (request.wear is not None and request.wear >= 170):
         machine_status = "Warning"
         reasons = []
 
         if request.temperature >= 75:
             reasons.append("elevated temperature")
-        if request.wear >= 170:
+        if request.wear is not None and request.wear >= 170:
             reasons.append("high wear level")
 
         message = (
@@ -227,6 +301,8 @@ def analyze_machine(request: MachineAnalysisRequest):
         message = (
             f"{request.name} is within the initial "
             "temperature and wear thresholds."
+            if request.wear is not None
+            else "initial temperature thresholds."
         )
 
     return {
@@ -239,6 +315,8 @@ def analyze_machine(request: MachineAnalysisRequest):
             "rpm": request.rpm,
             "torque": request.torque,
             "wear": request.wear,
+            "vibration": request.vibration,
+            "pressure": request.pressure,
         },
         "analysis_method": "rule_based_baseline",
     }

@@ -1,278 +1,50 @@
 import { useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
-import {
-  ScanLine,
-  RefreshCw,
-  TriangleAlert,
-  ListChecks,
-  ChevronRight,
-  MessageSquare,
-} from 'lucide-react';
-
-import { api } from '@/services/api';
-import { mockAnalysis } from '@/data/analysis';
+import { ScanLine, RefreshCw, TriangleAlert, MessageSquare } from 'lucide-react';
+import { api, type MachineAnalysis } from '@/services/api';
 import { Button } from '@/components/ui/button';
-import {
-  DemoBadge,
-  MachineSelect,
-  Status,
-  PageHeading,
-} from '@/components/factoryguard/shared';
-import {
-  useTemperature,
-  formatTimestamp,
-} from '@/components/factoryguard/state';
-
-type AnalysisResult = ReturnType<typeof mockAnalysis> & {
-  recommendation?: string;
-};
+import { DemoBadge, MachineSelect, Status, PageHeading, EmptyState } from '@/components/factoryguard/shared';
+import { useFactory, useTemperature, formatTimestamp } from '@/components/factoryguard/state';
 
 export function AnalysisPage({ machineId }: { machineId: string }) {
   const navigate = useNavigate();
-  const machine = api.getMachine(machineId);
-  const [analysis, setAnalysis] = useState<AnalysisResult>(
-    () => mockAnalysis(machine)
-  );
+  const { machines, dataLoading } = useFactory();
+  const machine = machines.find((item) => item.id === machineId);
+  const [analysis, setAnalysis] = useState<MachineAnalysis | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
   const temp = useTemperature();
 
   async function run() {
+    if (!machine) return;
     setLoading(true);
     setError('');
-    setNotice('');
-
+    setAnalysis(null);
     try {
-      const result = (await api.analyze(machineId)) as AnalysisResult;
-      setAnalysis(result);
-
-      if (result.recommendation) {
-        setNotice(
-          'Backend rule-based analysis received. Confidence, causes, and history may still contain demo data.'
-        );
-      } else {
-        setNotice(
-          'Demo analysis displayed. No backend recommendation was received.'
-        );
-      }
-    } catch (e) {
-      setError(
-        e instanceof Error
-          ? e.message
-          : 'Analysis could not be loaded.'
-      );
+      setAnalysis(await api.analyze(machine));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Backend analysis could not be loaded.');
     } finally {
       setLoading(false);
     }
   }
 
-  const isBackendResult = Boolean(analysis.recommendation);
-
-  return (
-    <>
-      <PageHeading
-        title="AI Failure Analysis"
-        description="Inspect sensor patterns and review maintenance recommendations."
-      >
-        <DemoBadge />
-      </PageHeading>
-
-      <div className="analysis-toolbar">
-        <div>
-          <label>Machine context</label>
-          <MachineSelect
-            value={machineId}
-            onChange={(machine) =>
-              navigate({ to: '/analysis', search: { machine } })
-            }
-          />
-        </div>
-
-        <Button onClick={run} disabled={loading}>
-          <RefreshCw className={loading ? 'spin' : ''} />
-          {loading ? 'Analyzing machine...' : 'Run machine analysis'}
-        </Button>
-      </div>
-
-      <div className="demo-notice">
-        <ScanLine size={18} />
-        <div>
-          <strong>
-            {isBackendResult
-              ? 'BACKEND RULE-BASED ANALYSIS'
-              : 'DEMO DATA'}
-          </strong>
-          <p>
-            {isBackendResult
-              ? 'The backend evaluated the machine using preliminary temperature and wear thresholds. Other diagnostics may still be sample data.'
-              : 'Sample diagnostics are shown until a backend analysis response is received. No trained predictive model is connected.'}
-          </p>
-        </div>
-      </div>
-
-      {error && (
-        <div role="alert" className="error-notice">
-          {error}
-          <Button variant="outline" size="sm" onClick={run}>
-            Retry
-          </Button>
-        </div>
-      )}
-
-      {notice && (
-        <div role="status" className="success-notice">
-          {notice}
-        </div>
-      )}
-
-      <div className="analysis-readings">
-        {[
-          {
-            label: 'Temperature',
-            value: `${temp.convert(machine.temperature)} ${temp.unit}`,
-          },
-          {
-            label: 'Rotational speed',
-            value: `${machine.rpm.toLocaleString()} RPM`,
-          },
-          {
-            label: 'Torque',
-            value: `${machine.torque} N·m`,
-          },
-          {
-            label: 'Tool wear',
-            value: `${machine.wear} min`,
-          },
-        ].map((reading) => (
-          <div key={reading.label}>
-            <span>{reading.label}</span>
-            <strong>{reading.value}</strong>
-          </div>
-        ))}
-      </div>
-
-      {analysis.recommendation && (
-        <section className="diagnostic-panel">
-          <div className="panel-heading">
-            <h2>
-              <TriangleAlert size={17} />
-              Backend recommendation
-            </h2>
-            <Status status={analysis.severity} />
-          </div>
-
-          <div className="diagnostic-content">
-            <p>{analysis.recommendation}</p>
-          </div>
-        </section>
-      )}
-
-      <div className="analysis-grid">
-        <section className="diagnostic-panel">
-          <div className="panel-heading">
-            <h2>
-              <TriangleAlert size={17} />
-              {isBackendResult
-                ? 'Sample anomaly history'
-                : 'Detected sample anomalies'}
-            </h2>
-            <Status status={analysis.severity} />
-          </div>
-
-          <div className="diagnostic-content">
-            {analysis.anomalies.map((anomaly, index) => (
-              <div className="anomaly-item" key={anomaly}>
-                <span className="number-marker">
-                  0{index + 1}
-                </span>
-                <p>{anomaly}</p>
-              </div>
-            ))}
-
-            <div className="confidence">
-              <span>
-                Sample confidence <DemoBadge />
-              </span>
-              <strong>{analysis.confidence}%</strong>
-            </div>
-
-            <p className="muted-small">
-              This confidence value is preconfigured demo data, not a
-              model-generated score.
-            </p>
-          </div>
-        </section>
-
-        <section className="diagnostic-panel">
-          <div className="panel-heading">
-            <h2>
-              <ScanLine size={17} />
-              Possible failure causes
-            </h2>
-          </div>
-
-          <div className="diagnostic-content">
-            {analysis.causes.map((cause) => (
-              <p className="cause-item" key={cause}>
-                <ChevronRight size={16} />
-                {cause}
-              </p>
-            ))}
-
-            <p className="muted-small">
-              Illustrative hypotheses only. Confirm against approved
-              machine specifications.
-            </p>
-          </div>
-        </section>
-      </div>
-
-      <section className="inspection-section">
-        <div className="panel-heading">
-          <h2>
-            <ListChecks size={17} />
-            Recommended inspection steps
-          </h2>
-          <span className="muted-small">Qualified personnel only</span>
-        </div>
-
-        <div className="inspection-list">
-          {analysis.steps.map((step, index) => (
-            <div key={step}>
-              <span className="number-marker">
-                {String(index + 1).padStart(2, '0')}
-              </span>
-              <p>{step}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <div className="analysis-bottom">
-        <span>
-          {isBackendResult
-            ? 'Backend response received · '
-            : 'Sample analysis timestamp: '}
-          {formatTimestamp(analysis.timestamp)}
-        </span>
-
-        <Button asChild variant="outline">
-          <a
-            href="/technician"
-            onClick={(event) => {
-              event.preventDefault();
-              navigate({
-                to: '/technician',
-                search: { machine: machineId },
-              });
-            }}
-          >
-            <MessageSquare />
-            Discuss with technician
-          </a>
-        </Button>
-      </div>
-    </>
-  );
+  return <>
+    <PageHeading title="Machine Analysis" description="Run the backend rule-based assessment and check whether an ML prediction is available."><DemoBadge /></PageHeading>
+    {!machine ? <EmptyState title={dataLoading ? 'Loading machine context...' : 'Machine data unavailable'} detail={dataLoading ? 'Waiting for the backend inventory.' : 'Select a machine returned by the backend before running analysis.'} /> : <>
+      <div className="analysis-toolbar"><div><label>Machine context</label><MachineSelect value={machineId} onChange={(selected) => navigate({ to: '/analysis', search: { machine: selected } })} /></div><Button onClick={run} disabled={loading || dataLoading}><RefreshCw className={loading ? 'spin' : ''} />{loading ? 'Analyzing machine...' : 'Run backend analysis'}</Button></div>
+      <div className="demo-notice"><ScanLine size={18} /><div><strong>BACKEND RESULTS</strong><p>Rule-based status comes from /analyze. A model prediction is shown only when the configured model returns one; absent models report UNKNOWN.</p></div></div>
+      {error && <div role="alert" className="error-notice">{error}<Button variant="outline" size="sm" onClick={run}>Retry</Button></div>}
+      <div className="analysis-readings">{[
+        { label: 'Temperature', value: `${temp.convert(machine.temperature)} ${temp.unit}` },
+        { label: 'Vibration', value: machine.vibration === undefined ? 'Unavailable' : `${machine.vibration} mm/s` },
+        { label: 'Pressure', value: machine.pressure === undefined ? 'Unavailable' : `${machine.pressure} bar` },
+      ].map((reading) => <div key={reading.label}><span>{reading.label}</span><strong>{reading.value}</strong></div>)}</div>
+      {analysis && <>
+        <section className="diagnostic-panel"><div className="panel-heading"><h2><TriangleAlert size={17} />Rule-based assessment</h2><Status status={analysis.status} /></div><div className="diagnostic-content"><p>{analysis.message}</p><p className="muted-small">Method: {analysis.analysis_method}. This is not a trained ML result.</p></div></section>
+        <section className="diagnostic-panel"><div className="panel-heading"><h2><ScanLine size={17} />ML anomaly prediction</h2><span className={`event-status event-${analysis.prediction.status.toLowerCase()}`}>{analysis.prediction.status}</span></div><div className="diagnostic-content"><p>{analysis.prediction.status === 'UNKNOWN' ? analysis.prediction.note ?? 'No prediction was made.' : analysis.prediction.status === 'ANOMALY' ? 'The configured model reported an anomaly.' : 'The configured model reported no anomaly.'}</p></div></section>
+      </>}
+      <div className="analysis-bottom"><span>{analysis ? `Backend response · ${formatTimestamp(machine.updatedAt)}` : 'Analysis has not been run.'}</span><Button asChild variant="outline"><a href="/technician" onClick={(event) => { event.preventDefault(); navigate({ to: '/technician', search: { machine: machineId } }); }}><MessageSquare />Technician demo</a></Button></div>
+    </>}
+  </>;
 }

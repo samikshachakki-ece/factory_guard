@@ -11,6 +11,7 @@ import {
 import { useEffect, type ReactNode } from "react";
 
 import { AppShell } from "@/components/factoryguard/shell";
+import { BackendStatus } from "@/components/factoryguard/shared";
 import { FactoryProvider } from "@/components/factoryguard/state";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -124,7 +125,7 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <FactoryProvider><AppShell><Outlet /></AppShell></FactoryProvider> breaks all child routes. */}
-      <FactoryProvider><AppShell><Outlet /></AppShell></FactoryProvider>
+      <FactoryProvider><AppShell><BackendStatus /><Outlet /></AppShell></FactoryProvider>
     </QueryClientProvider>
   );
 }

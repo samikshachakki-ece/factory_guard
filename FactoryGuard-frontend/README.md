@@ -1,5 +1,8 @@
 # FactoryGuard Frontend (HTML + CSS + JavaScript)
 
+> This is a standalone legacy demo. The active project dashboard is the TanStack app in the parent
+> folder; run it with the parent `package.json` as described in the parent `README.md`.
+
 This is a beginner-friendly, standalone frontend demo. It does not require React, npm, a backend, or a database.
 
 ## Files

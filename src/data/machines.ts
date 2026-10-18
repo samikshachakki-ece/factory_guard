@@ -1,5 +1,5 @@
 export type Health = 'Healthy' | 'Warning' | 'Critical';
-export interface Machine { id: string; name: string; type: string; line: string; temperature: number; rpm: number; torque: number; wear: number; status: Health; updatedAt: string }
+export interface Machine { id: string; name: string; type: string; line: string; temperature: number; vibration?: number; pressure?: number; rpm?: number; torque?: number; wear?: number; status: Health; updatedAt: string; dataSource?: 'demo' | 'sensor' }
 export const sampleTimestamp = '2026-10-12T08:45:00Z';
 export const mockMachines: Machine[] = [
   {id:'MCH-001',name:'CNC Milling Machine',type:'CNC mill',line:'Production line A',temperature:64.2,rpm:1480,torque:42.6,wear:124,status:'Healthy',updatedAt:sampleTimestamp},
